@@ -1,2 +1,2 @@
 # intern
-An implementation of Interns in C
+An implementation of Interning in C
