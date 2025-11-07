@@ -105,7 +105,7 @@ Interns use:
 1. Include the project in your MODULE.bazel file.
    
    ```
-   bazel_dep(name = "intern", version = "1.0.0")
+   bazel_dep(name = "intern", version = "0.0.1")
    ```
 2. Include the header dependency:
 

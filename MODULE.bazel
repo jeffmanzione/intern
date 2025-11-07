@@ -2,7 +2,8 @@
 
 module(
     name = "intern",
-    version = "1.0",
+    version = "0.0.1",
+    compatibility_leve = 1,
 )
 
 bazel_dep(name = "googletest", version = "1.17.0")
