@@ -6,7 +6,10 @@ package(default_visibility = ["//visibility:private"])
 cc_library(
     name = "intern",
     hdrs = ["intern.h"],
-    deps = ["//intern/internal:hash_set"],
+    deps = [
+        "//intern/internal:hash_set",
+        "//intern/internal:intern_helpers",
+    ],
 )
 
 cc_test(

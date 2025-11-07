@@ -27,7 +27,7 @@ IMPL_INTERN(StringIntern, char);
 uint32_t hash_string(const char *ptr, uint32_t size) {
   unsigned char *s = (unsigned char *)ptr;
   uint32_t hval = FNV_1A_32_OFFSET;
-  for (int i = 0; i < size; ++i) {
+  for (uint32_t i = 0; i < size; ++i) {
     hval *= FNV_32_PRIME;
     hval ^= (uint32_t)*s++;
   }
