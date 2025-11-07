@@ -52,8 +52,8 @@ int main(void) {
     const char *a = "hello";
     const char *b = "hello";
 
-    char *interned_a = StringIntern_intern(&intern, a, strlen(a) + 1);
-    char *interned_b = StringIntern_intern(&intern, b, strlen(b) + 1);
+    const char *interned_a = StringIntern_intern(&intern, a, strlen(a) + 1);
+    const char *interned_b = StringIntern_intern(&intern, b, strlen(b) + 1);
 
     printf("Pointers equal? %s\n", (interned_a == interned_b) ? "yes" : "no");
 

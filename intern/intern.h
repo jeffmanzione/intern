@@ -27,8 +27,8 @@
                                                                               \
   void name##_init(name *intern, name##HashFn hash, name##CompareFn compare); \
   void name##_finalize(name *intern);                                         \
-  value_type *name##_intern(name *intern, const value_type *value,            \
-                            uint32_t value_size);
+  const value_type *name##_intern(name *intern, const value_type *value,      \
+                                  uint32_t value_size);
 
 #define IMPL_INTERN(name, value_type)                                         \
   IMPL_HASH_SET(name##HashSet, value_type *);                                 \
@@ -69,8 +69,8 @@
     name##Chunk_delete(intern->chunk);                                        \
   }                                                                           \
                                                                               \
-  value_type *name##_intern(name *intern, const value_type *value,            \
-                            uint32_t value_size) {                            \
+  const value_type *name##_intern(name *intern, const value_type *value,      \
+                                  uint32_t value_size) {                      \
     value_type *value_lookup =                                                \
         name##HashSet_find(&intern->hash_set, value, value_size, NULL);       \
     if (NULL != value_lookup) {                                               \

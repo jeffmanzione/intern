@@ -63,7 +63,7 @@ TEST_F(StringInternTest, Init) {
 
 TEST_F(StringInternTest, Intern) {
   // Insert
-  char *str = StringIntern_intern(&intern, "cat", sizeof("cat"));
+  const char *str = StringIntern_intern(&intern, "cat", sizeof("cat"));
 
   // Verify it returns save string
   ASSERT_THAT(str, NotNull());
@@ -72,10 +72,10 @@ TEST_F(StringInternTest, Intern) {
 
 TEST_F(StringInternTest, InternN) {
   // Insert
-  char *cat = StringIntern_intern(&intern, "cat", sizeof("cat"));
-  char *in = StringIntern_intern(&intern, "in", sizeof("in"));
-  char *the = StringIntern_intern(&intern, "the", sizeof("the"));
-  char *hat = StringIntern_intern(&intern, "hat", sizeof("hat"));
+  const char *cat = StringIntern_intern(&intern, "cat", sizeof("cat"));
+  const char *in = StringIntern_intern(&intern, "in", sizeof("in"));
+  const char *the = StringIntern_intern(&intern, "the", sizeof("the"));
+  const char *hat = StringIntern_intern(&intern, "hat", sizeof("hat"));
 
   // Verify it returns save string
   ASSERT_THAT(cat, NotNull());
