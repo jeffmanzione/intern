@@ -11,21 +11,22 @@
 
 #define DEFAULT_HASHTABLE_SIZE 4091
 
-#define DEFINE_INTERN(name, value_type)                    \
-  DEFINE_HASH_SET(name##HashSet, value_type *);            \
-                                                           \
-  typedef struct name##Chunk_ name##Chunk;                 \
-                                                           \
-  typedef struct {                                         \
-    void *tail, *end;                                      \
-    name##Chunk *chunk, *last;                             \
-    name##HashSet hash_set;                                \
-  } name;                                                  \
-                                                           \
-  void name##_init(name *intern, name##HashSetHashFn hash, \
-                   name##HashSetCompareFn compare);        \
-  void name##_finalize(name *intern);                      \
-  value_type *name##_intern(name *intern, const value_type *str, uint32_t size);
+#define DEFINE_INTERN(name, value_type)                            \
+  DEFINE_HASH_SET(name##HashSet, value_type *);                    \
+                                                                   \
+  typedef struct name##Chunk_ name##Chunk;                         \
+                                                                   \
+  typedef struct {                                                 \
+    void *tail, *end;                                              \
+    name##Chunk *chunk, *last;                                     \
+    name##HashSet hash_set;                                        \
+  } name;                                                          \
+                                                                   \
+  void name##_init(name *intern, name##HashSetHashFn hash,         \
+                   name##HashSetCompareFn compare);                \
+  void name##_finalize(name *intern);                              \
+  value_type *name##_intern(name *intern, const value_type *value, \
+                            uint32_t value_size);
 
 #define IMPL_INTERN(name, value_type)                                   \
   IMPL_HASH_SET(name##HashSet, value_type *);                           \
@@ -66,24 +67,24 @@
     name##Chunk_delete(intern->chunk);                                  \
   }                                                                     \
                                                                         \
-  value_type *name##_intern(name *intern, const value_type *str,        \
-                            uint32_t size) {                            \
-    value_type *str_lookup =                                            \
-        name##HashSet_find(&intern->hash_set, str, size, NULL);         \
-    if (NULL != str_lookup) {                                           \
-      return str_lookup;                                                \
+  value_type *name##_intern(name *intern, const value_type *value,      \
+                            uint32_t value_size) {                      \
+    value_type *value_lookup =                                          \
+        name##HashSet_find(&intern->hash_set, value, value_size, NULL); \
+    if (NULL != value_lookup) {                                         \
+      return value_lookup;                                              \
     }                                                                   \
                                                                         \
-    if (intern->tail + size >= intern->end) {                           \
+    if (intern->tail + value_size >= intern->end) {                     \
       intern->last->next = name##Chunk_create();                        \
       intern->last = intern->last->next;                                \
       intern->tail = intern->last->block;                               \
       intern->end = intern->tail + intern->last->sz;                    \
     }                                                                   \
     value_type *to_return = (value_type *)intern->tail;                 \
-    memmove(intern->tail, str, size);                                   \
-    intern->tail += size;                                               \
-    name##HashSet_insert(&intern->hash_set, to_return, size);           \
+    memmove(intern->tail, value, value_size);                           \
+    intern->tail += value_size;                                         \
+    name##HashSet_insert(&intern->hash_set, to_return, value_size);     \
     return to_return;                                                   \
   }
 
