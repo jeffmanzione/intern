@@ -3,32 +3,88 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "intern/internal/hash_set.h"
 
 #define DEFAULT_CHUNK_SIZE 32488
+
 #define DEFAULT_HASHTABLE_SIZE 4091
 
-typedef struct {
-  char *block;
-  StringChunk *next;
-  uint32_t sz;
-} StringChunk;
+#define DEFINE_INTERN(name, value_type)                    \
+  DEFINE_HASH_SET(name##HashSet, value_type *);            \
+                                                           \
+  typedef struct name##Chunk_ name##Chunk;                 \
+                                                           \
+  typedef struct {                                         \
+    void *tail, *end;                                      \
+    name##Chunk *chunk, *last;                             \
+    name##HashSet hash_set;                                \
+  } name;                                                  \
+                                                           \
+  void name##_init(name *intern, name##HashSetHashFn hash, \
+                   name##HashSetCompareFn compare);        \
+  void name##_finalize(name *intern);                      \
+  value_type *name##_intern(name *intern, const value_type *str, uint32_t size);
 
-typedef struct {
-
-  char *tail, *end;
-  StringChunk *chunk, *last;
-  Set strings;
-} StringIntern;
-
-StringChunk *StringChunk_create() {
-  StringChunk *chunk = malloc(StringChunk);
-  chunk->sz = DEFAULT_CHUNK_SIZE;
-  chunk->block = malloc(sizeof(char *) * chunk->sz);
-  chunk->next = NULL;
-  return chunk;
-}
-
-
-#define DEFINE_INTERN(InternName, InternType)
+#define IMPL_INTERN(name, value_type)                                   \
+  IMPL_HASH_SET(name##HashSet, value_type *);                           \
+                                                                        \
+  struct name##Chunk_ {                                                 \
+    void *block;                                                        \
+    name##Chunk *next;                                                  \
+    uint32_t sz;                                                        \
+  };                                                                    \
+                                                                        \
+  name##Chunk *name##Chunk_create() {                                   \
+    name##Chunk *chunk = (name##Chunk *)malloc(sizeof(name##Chunk));    \
+    chunk->sz = DEFAULT_CHUNK_SIZE;                                     \
+    chunk->block = malloc(sizeof(value_type) * chunk->sz);              \
+    chunk->next = NULL;                                                 \
+    return chunk;                                                       \
+  }                                                                     \
+                                                                        \
+  void name##Chunk_delete(name##Chunk *chunk) {                         \
+    if (NULL != chunk->next) {                                          \
+      name##Chunk_delete(chunk->next);                                  \
+    }                                                                   \
+    free(chunk->block);                                                 \
+    free(chunk);                                                        \
+  }                                                                     \
+                                                                        \
+  void name##_init(name *intern, name##HashSetHashFn hash,              \
+                   name##HashSetCompareFn compare) {                    \
+    intern->chunk = intern->last = name##Chunk_create();                \
+    intern->tail = intern->chunk->block;                                \
+    intern->end = intern->tail + intern->chunk->sz;                     \
+    name##HashSet_init(&intern->hash_set, DEFAULT_HASHTABLE_SIZE, hash, \
+                       compare);                                        \
+  }                                                                     \
+                                                                        \
+  void name##_finalize(name *intern) {                                  \
+    name##HashSet_finalize(&intern->hash_set);                          \
+    name##Chunk_delete(intern->chunk);                                  \
+  }                                                                     \
+                                                                        \
+  value_type *name##_intern(name *intern, const value_type *str,        \
+                            uint32_t size) {                            \
+    value_type *str_lookup =                                            \
+        name##HashSet_find(&intern->hash_set, str, size, NULL);         \
+    if (NULL != str_lookup) {                                           \
+      return str_lookup;                                                \
+    }                                                                   \
+                                                                        \
+    if (intern->tail + size >= intern->end) {                           \
+      intern->last->next = name##Chunk_create();                        \
+      intern->last = intern->last->next;                                \
+      intern->tail = intern->last->block;                               \
+      intern->end = intern->tail + intern->last->sz;                    \
+    }                                                                   \
+    value_type *to_return = (value_type *)intern->tail;                 \
+    memmove(intern->tail, str, size);                                   \
+    intern->tail += size;                                               \
+    name##HashSet_insert(&intern->hash_set, to_return, size);           \
+    return to_return;                                                   \
+  }
 
 #endif /* COM_GITHUB_JEFFMANZIONE_INTERN_INTERN_H_ */

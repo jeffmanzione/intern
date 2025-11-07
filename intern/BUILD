@@ -1,19 +1,20 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
-package(default_visibility = ["//intern:__pkg__"])
+package(default_visibility = ["//visibility:private"])
 
 cc_library(
-    name = "hash_set",
-    hdrs = ["hash_set.h"],
+    name = "intern",
+    hdrs = ["intern.h"],
+    deps = ["//intern/internal:hash_set"],
 )
 
 cc_test(
-    name = "hash_set_test",
+    name = "intern_test",
     size = "small",
-    srcs = ["hash_set_test.cc"],
+    srcs = ["intern_test.cc"],
     deps = [
-        ":hash_set",
+        ":intern",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],
