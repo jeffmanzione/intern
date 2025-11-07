@@ -41,7 +41,7 @@ uint32_t str_hash(const char *s, uint32_t size) {
     return hash;
 }
 
-int str_compare(const char *a,, uint32_t a_size, const char *b, uint32_t b_size) {
+int str_compare(const char *a, uint32_t a_size, const char *b, uint32_t b_size) {
     return memcmp(a, b, max(a_size, b_size));
 }
 
