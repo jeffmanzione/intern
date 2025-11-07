@@ -12,21 +12,22 @@
 
 #define MAX_VALUE(a, b) ((a) > (b)) ? (a) : (b)
 
-#define DEFINE_INTERN(name, value_type)                            \
-  DEFINE_HASH_SET(name##HashSet, value_type *);                    \
-                                                                   \
-  typedef struct name##Chunk_ name##Chunk;                         \
-                                                                   \
-  typedef struct {                                                 \
-    char *tail, *end;                                              \
-    name##Chunk *chunk, *last;                                     \
-    name##HashSet hash_set;                                        \
-  } name;                                                          \
-                                                                   \
-  void name##_init(name *intern, name##HashSetHashFn hash,         \
-                   name##HashSetCompareFn compare);                \
-  void name##_finalize(name *intern);                              \
-  value_type *name##_intern(name *intern, const value_type *value, \
+#define DEFINE_INTERN(name, value_type)                                       \
+  DEFINE_HASH_SET(name##HashSet, value_type *);                               \
+                                                                              \
+  typedef name##HashSetHashFn name##HashFn;                                   \
+  typedef name##HashSetCompareFn name##CompareFn;                             \
+  typedef struct name##Chunk_ name##Chunk;                                    \
+                                                                              \
+  typedef struct {                                                            \
+    char *tail, *end;                                                         \
+    name##Chunk *chunk, *last;                                                \
+    name##HashSet hash_set;                                                   \
+  } name;                                                                     \
+                                                                              \
+  void name##_init(name *intern, name##HashFn hash, name##CompareFn compare); \
+  void name##_finalize(name *intern);                                         \
+  value_type *name##_intern(name *intern, const value_type *value,            \
                             uint32_t value_size);
 
 #define IMPL_INTERN(name, value_type)                                         \

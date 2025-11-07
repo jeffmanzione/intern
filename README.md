@@ -82,7 +82,7 @@ Each intern is generated using macros:
 Each generated intern provides:
 
 ```c
-void name_init(name *intern, name##HashSetHashFn hash, name##HashSetCompareFn compare);
+void name_init(name *intern, name##HashFn hash, name##CompareFn compare);
 void name_finalize(name *intern);
 value_type *name_intern(name *intern, const value_type *value, uint32_t value_size);
 ```
