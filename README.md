@@ -94,9 +94,8 @@ value_type *name_intern(name *intern, const value_type *value, uint32_t value_si
 Interns use:
 
 * A **hash set** (`name##HashSet`) to ensure uniqueness.
-* A **linked list of chunks** (`name##Chunk`) for efficient memory allocation.
+* A **linked list of data chunks** (`name##Chunk`) for efficient memory allocation.
 * A **simple pointer bump allocator** within each chunk.
-* **`DEFAULT_CHUNK_SIZE`** and **`DEFAULT_HASHTABLE_SIZE`** constants for tuning performance.
 
 ---
 
