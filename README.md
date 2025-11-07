@@ -107,13 +107,26 @@ Interns use:
    ```
    bazel_dep(name = "intern", version = "0.0.1")
    ```
-2. Include the header dependency:
+2. Add the dependency to your cc_library:
+
+   ```
+   cc_library(
+      name = "my_lib",
+      hdrs = [...],
+      srcs = [...],
+      deps = [
+        ...
+        "@intern//intern",
+      ],
+   )
+   ```
+3. Include the header in your code:
 
    ```
    #include "intern/intern.h"
    ```
-3. Link with your existing C project (no external libraries required).
-4. Implement your hash and compare functions per value type.
+4. Link with your existing C project (no external libraries required).
+5. Implement your hash and compare functions per value type.
 
 ---
 
@@ -122,8 +135,7 @@ Interns use:
 Tests can be run using the following commands:
 
 ```
-bazel test //intern:intern_test
-bazel test //intern/internal:hash_set_test
+bazel test --test_output=all //...
 ```
 
 ## License
