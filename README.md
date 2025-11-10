@@ -82,7 +82,7 @@ Each intern is generated using macros:
 Each generated intern provides:
 
 ```c
-void name_init(name *intern, name##HashFn hash, name##CompareFn compare);
+void name_init(name *intern, nameHashFn hash, nameCompareFn compare);
 void name_finalize(name *intern);
 value_type *name_intern(name *intern, const value_type *value, uint32_t value_size);
 ```
@@ -108,7 +108,7 @@ Interns use:
    ```
 2. Add the dependency to your cc_library:
 
-   ```
+   ```starlark
    cc_library(
       name = "my_lib",
       hdrs = [...],
@@ -121,7 +121,7 @@ Interns use:
    ```
 3. Include the header in your code:
 
-   ```
+   ```c
    #include "intern/intern.h"
    ```
 4. Link with your existing C project (no external libraries required).

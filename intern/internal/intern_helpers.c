@@ -10,5 +10,5 @@ uint32_t compute_nearest_pow2_gte(uint32_t num) {
   num |= num >> 4;
   num |= num >> 8;
   num |= num >> 16;
-  return ++num;
+  return num + 1;
 }
