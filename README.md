@@ -3,6 +3,7 @@
 **Intern** is a lightweight C library for creating *interning data structures* — collections that store unique instances of data (such as strings or other value types) efficiently.  
 It uses preprocessor macros to generate type-safe intern tables backed by hash sets and chunk-based memory allocation.
 In addition, it supports threadsafe interning by initialization parameter.
+
 ---
 
 ## What Is Interning?
