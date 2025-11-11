@@ -23,7 +23,7 @@ int str_compare(const char *a, uint32_t a_size, const char *b,
 
 int main(void) {
   StringIntern intern;
-  StringIntern_init(&intern, str_hash, str_compare);
+  StringIntern_init(&intern, /*threadsafe=*/false, str_hash, str_compare);
 
   const char *a = "hello";
   const char *b = "hello";

@@ -2,7 +2,7 @@
 
 **Intern** is a lightweight C library for creating *interning data structures* — collections that store unique instances of data (such as strings or other value types) efficiently.  
 It uses preprocessor macros to generate type-safe intern tables backed by hash sets and chunk-based memory allocation.
-
+In addition, it supports threadsafe interning by initialization parameter.
 ---
 
 ## What Is Interning?
@@ -17,6 +17,7 @@ Instead of duplicating copies, you “intern” the value and reuse the existing
 - **Type-safe macros** — Define interners for any data type.
 - **Memory-chunk allocator** — Efficiently allocates large memory blocks for interned data.
 - **Custom hash & compare functions** — Plug in your own functions for different data types.
+- **Thread-safe** — Supports a thread-safe configuration, allowing for usage by multi-threaded applications.
 - **Lightweight dependency** — Uses only standard C libraries.
 - **Single-header convenience** — Just include `intern.h` and define your intern type.
 
@@ -47,7 +48,7 @@ int str_compare(const char *a, uint32_t a_size, const char *b, uint32_t b_size) 
 
 int main(void) {
     StringIntern intern;
-    StringIntern_init(&intern, str_hash, str_compare);
+    StringIntern_init(&intern, /*threadsafe=*/false, str_hash, str_compare);
 
     const char *a = "hello";
     const char *b = "hello";
@@ -82,7 +83,7 @@ Each intern is generated using macros:
 Each generated intern provides:
 
 ```c
-void name_init(name *intern, nameHashFn hash, nameCompareFn compare);
+void name_init(name *intern, bool threadsafe, nameHashFn hash, nameCompareFn compare);
 void name_finalize(name *intern);
 value_type *name_intern(name *intern, const value_type *value, uint32_t value_size);
 ```
