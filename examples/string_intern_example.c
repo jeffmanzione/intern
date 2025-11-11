@@ -5,9 +5,9 @@
 
 #define MAX_VALUE(a, b) ((a) > (b)) ? (a) : (b)
 
-// Define an Intern for strings (char arrays)
-DEFINE_INTERN(StringIntern, char)
-IMPL_INTERN(StringIntern, char)
+// Define an intern pool for strings (char arrays)
+DEFINE_INTERN_POOL(StringInternPool, char)
+IMPL_INTERN_POOL(StringInternPool, char)
 
 // Simple string hash and compare
 uint32_t str_hash(const char *s, uint32_t size) {
@@ -22,17 +22,20 @@ int str_compare(const char *a, uint32_t a_size, const char *b,
 }
 
 int main(void) {
-  StringIntern intern;
-  StringIntern_init(&intern, /*threadsafe=*/false, str_hash, str_compare);
+  StringInternPool intern_pool;
+  StringInternPool_init(&intern_pool, /*threadsafe=*/false, str_hash,
+                        str_compare);
 
   const char *a = "hello";
   const char *b = "hello";
 
-  const char *interned_a = StringIntern_intern(&intern, a, strlen(a) + 1);
-  const char *interned_b = StringIntern_intern(&intern, b, strlen(b) + 1);
+  const char *interned_a =
+      StringInternPool_intern(&intern_pool, a, strlen(a) + 1);
+  const char *interned_b =
+      StringInternPool_intern(&intern_pool, b, strlen(b) + 1);
 
   printf("Pointers equal? %s\n", (interned_a == interned_b) ? "yes" : "no");
 
-  StringIntern_finalize(&intern);
+  StringInternPool_finalize(&intern_pool);
   return 0;
 }

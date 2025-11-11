@@ -2,7 +2,7 @@
 
 **Intern** is a lightweight C library for creating *interning data structures* — collections that store unique instances of data (such as strings or other value types) efficiently.  
 It uses preprocessor macros to generate type-safe intern tables backed by hash sets and chunk-based memory allocation.
-In addition, it supports threadsafe interning by initialization parameter.
+In addition, it supports thread-safe interning by initialization parameter.
 
 ---
 
@@ -15,7 +15,7 @@ Instead of duplicating copies, you “intern” the value and reuse the existing
 
 ## Features
 
-- **Type-safe macros** — Define interners for any data type.
+- **Type-safe macros** — Define intern pools for any data type.
 - **Memory-chunk allocator** — Efficiently allocates large memory blocks for interned data.
 - **Custom hash & compare functions** — Plug in your own functions for different data types.
 - **Thread-safe** — Supports a thread-safe configuration, allowing for usage by multi-threaded applications.
@@ -31,9 +31,9 @@ Instead of duplicating copies, you “intern” the value and reuse the existing
 #include <stdio.h>
 #include <string.h>
 
-// Define an Intern for strings (char arrays)
-DEFINE_INTERN(StringIntern, char)
-IMPL_INTERN(StringIntern, char)
+// Define an intern pool for strings (char arrays)
+DEFINE_INTERN_POOL(StringInternPool, char)
+IMPL_INTERN_POOL(StringInternPool, char)
 
 // Simple string hash and compare
 uint32_t str_hash(const char *s, uint32_t size) {
@@ -48,18 +48,18 @@ int str_compare(const char *a, uint32_t a_size, const char *b, uint32_t b_size) 
 }
 
 int main(void) {
-    StringIntern intern;
-    StringIntern_init(&intern, /*threadsafe=*/false, str_hash, str_compare);
+    StringInternPool intern_pool;
+    StringInternPool_init(&intern_pool, /*threadsafe=*/false, str_hash, str_compare);
 
     const char *a = "hello";
     const char *b = "hello";
 
-    const char *interned_a = StringIntern_intern(&intern, a, strlen(a) + 1);
-    const char *interned_b = StringIntern_intern(&intern, b, strlen(b) + 1);
+    const char *interned_a = StringInternPool_intern(&intern_pool, a, strlen(a) + 1);
+    const char *interned_b = StringInternPool_intern(&intern_pool, b, strlen(b) + 1);
 
     printf("Pointers equal? %s\n", (interned_a == interned_b) ? "yes" : "no");
 
-    StringIntern_finalize(&intern);
+    StringInternPool_finalize(&intern_pool);
     return 0;
 }
 ````
@@ -78,22 +78,22 @@ Each intern is generated using macros:
 
 | Macro                             | Purpose                                                             |
 | --------------------------------- | ------------------------------------------------------------------- |
-| `DEFINE_INTERN(name, value_type)` | Declares a new intern structure and API for the given type.         |
-| `IMPL_INTERN(name, value_type)`   | Implements the intern structure. Should be placed in one `.c` file. |
+| `DEFINE_INTERN_POOL(name, value_type)` | Declares a new interning structure and API for the given type.         |
+| `IMPL_INTERN_POOL(name, value_type)`   | Implements the interning structure. Should be placed in one `.c` file. |
 
 Each generated intern provides:
 
 ```c
-void name_init(name *intern, bool threadsafe, nameHashFn hash, nameCompareFn compare);
-void name_finalize(name *intern);
-value_type *name_intern(name *intern, const value_type *value, uint32_t value_size);
+void name_init(name *intern_pool, bool threadsafe, nameHashFn hash, nameCompareFn compare);
+void name_finalize(name *intern_pool);
+value_type *name_intern(name *intern_pool, const value_type *value, uint32_t value_size);
 ```
 
 ---
 
 ## Implementation Details
 
-Interns use:
+Intern Pools use:
 
 * A **hash set** (`name##HashSet`) to ensure uniqueness.
 * A **linked list of data chunks** (`name##Chunk`) for efficient memory allocation.

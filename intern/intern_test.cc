@@ -10,10 +10,10 @@ namespace {
 
 using namespace testing;
 
-DEFINE_INTERN(Int32Intern, int32_t);
+DEFINE_INTERN_POOL(Int32InternPool, int32_t);
 
-DEFINE_INTERN(StringIntern, char);
-IMPL_INTERN(StringIntern, char);
+DEFINE_INTERN_POOL(StringInternPool, char);
+IMPL_INTERN_POOL(StringInternPool, char);
 
 // https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 #define FNV_32_PRIME (0x01000193)
@@ -48,35 +48,35 @@ int32_t compare_strings(const char *ptr1, uint32_t size1, const char *ptr2,
   return memcmp(ptr1, ptr2, std::max(size1, size2));
 }
 
-class StringInternTest : public Test {
+class StringInternPoolTest : public Test {
  protected:
-  StringInternTest() {
-    StringIntern_init(&intern, /*threadsafe=*/false, hash_string,
-                      compare_strings);
+  StringInternPoolTest() {
+    StringInternPool_init(&intern_pool, /*threadsafe=*/false, hash_string,
+                          compare_strings);
   }
-  ~StringInternTest() { StringIntern_finalize(&intern); }
-  StringIntern intern;
+  ~StringInternPoolTest() { StringInternPool_finalize(&intern_pool); }
+  StringInternPool intern_pool;
 };
 
-TEST_F(StringInternTest, Init) {
+TEST_F(StringInternPoolTest, Init) {
   // Just test setup/teardown.
 }
 
-TEST_F(StringInternTest, Intern) {
+TEST_F(StringInternPoolTest, InternPool) {
   // Insert
-  const char *str = StringIntern_intern(&intern, "cat", sizeof("cat"));
+  const char *str = StringInternPool_intern(&intern_pool, "cat", sizeof("cat"));
 
   // Verify it returns same string
   ASSERT_THAT(str, NotNull());
-  ASSERT_EQ(str, StringIntern_intern(&intern, str, sizeof("cat")));
+  ASSERT_EQ(str, StringInternPool_intern(&intern_pool, str, sizeof("cat")));
 }
 
-TEST_F(StringInternTest, InternN) {
+TEST_F(StringInternPoolTest, InternPoolN) {
   // Insert
-  const char *cat = StringIntern_intern(&intern, "cat", sizeof("cat"));
-  const char *in = StringIntern_intern(&intern, "in", sizeof("in"));
-  const char *the = StringIntern_intern(&intern, "the", sizeof("the"));
-  const char *hat = StringIntern_intern(&intern, "hat", sizeof("hat"));
+  const char *cat = StringInternPool_intern(&intern_pool, "cat", sizeof("cat"));
+  const char *in = StringInternPool_intern(&intern_pool, "in", sizeof("in"));
+  const char *the = StringInternPool_intern(&intern_pool, "the", sizeof("the"));
+  const char *hat = StringInternPool_intern(&intern_pool, "hat", sizeof("hat"));
 
   // Verify it returns same string
   ASSERT_THAT(cat, NotNull());
@@ -85,14 +85,14 @@ TEST_F(StringInternTest, InternN) {
   ASSERT_THAT(hat, NotNull());
 
   // Verify uniqueness of equivalent strings
-  ASSERT_EQ(cat, StringIntern_intern(&intern, "cat", sizeof("cat")));
-  ASSERT_EQ(cat, StringIntern_intern(&intern, cat, sizeof("cat")));
-  ASSERT_EQ(in, StringIntern_intern(&intern, "in", sizeof("in")));
-  ASSERT_EQ(in, StringIntern_intern(&intern, in, sizeof("in")));
-  ASSERT_EQ(the, StringIntern_intern(&intern, "the", sizeof("the")));
-  ASSERT_EQ(the, StringIntern_intern(&intern, the, sizeof("the")));
-  ASSERT_EQ(hat, StringIntern_intern(&intern, "hat", sizeof("hat")));
-  ASSERT_EQ(hat, StringIntern_intern(&intern, hat, sizeof("hat")));
+  ASSERT_EQ(cat, StringInternPool_intern(&intern_pool, "cat", sizeof("cat")));
+  ASSERT_EQ(cat, StringInternPool_intern(&intern_pool, cat, sizeof("cat")));
+  ASSERT_EQ(in, StringInternPool_intern(&intern_pool, "in", sizeof("in")));
+  ASSERT_EQ(in, StringInternPool_intern(&intern_pool, in, sizeof("in")));
+  ASSERT_EQ(the, StringInternPool_intern(&intern_pool, "the", sizeof("the")));
+  ASSERT_EQ(the, StringInternPool_intern(&intern_pool, the, sizeof("the")));
+  ASSERT_EQ(hat, StringInternPool_intern(&intern_pool, "hat", sizeof("hat")));
+  ASSERT_EQ(hat, StringInternPool_intern(&intern_pool, hat, sizeof("hat")));
 }
 
 }  // namespace
