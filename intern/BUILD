@@ -9,6 +9,7 @@ cc_library(
     deps = [
         "//intern/internal:hash_set",
         "//intern/internal:intern_helpers",
+        "//intern/internal:rwlock",
     ],
 )
 

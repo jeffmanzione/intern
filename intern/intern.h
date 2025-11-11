@@ -7,27 +7,31 @@
 
 #include "intern/internal/hash_set.h"
 #include "intern/internal/intern_helpers.h"
+#include "intern/internal/rwlock.h"
 
 #define DEFAULT_MAX_VALUES_PER_CHUNK 64
 
 #define MAX_VALUE(a, b) ((a) > (b)) ? (a) : (b)
 
-#define DEFINE_INTERN(name, value_type)                                       \
-  DEFINE_HASH_SET(name##HashSet, value_type *);                               \
-                                                                              \
-  typedef name##HashSetHashFn name##HashFn;                                   \
-  typedef name##HashSetCompareFn name##CompareFn;                             \
-  typedef struct name##Chunk_ name##Chunk;                                    \
-                                                                              \
-  typedef struct {                                                            \
-    char *tail, *end;                                                         \
-    name##Chunk *chunk, *last;                                                \
-    name##HashSet hash_set;                                                   \
-  } name;                                                                     \
-                                                                              \
-  void name##_init(name *intern, name##HashFn hash, name##CompareFn compare); \
-  void name##_finalize(name *intern);                                         \
-  const value_type *name##_intern(name *intern, const value_type *value,      \
+#define DEFINE_INTERN(name, value_type)                                  \
+  DEFINE_HASH_SET(name##HashSet, value_type *);                          \
+                                                                         \
+  typedef name##HashSetHashFn name##HashFn;                              \
+  typedef name##HashSetCompareFn name##CompareFn;                        \
+  typedef struct name##Chunk_ name##Chunk;                               \
+                                                                         \
+  typedef struct {                                                       \
+    bool threadsafe;                                                     \
+    char *tail, *end;                                                    \
+    name##Chunk *chunk, *last;                                           \
+    name##HashSet hash_set;                                              \
+    RWLock rw_lock;                                                      \
+  } name;                                                                \
+                                                                         \
+  void name##_init(name *intern, bool threadsafe, name##HashFn hash,     \
+                   name##CompareFn compare);                             \
+  void name##_finalize(name *intern);                                    \
+  const value_type *name##_intern(name *intern, const value_type *value, \
                                   uint32_t value_size);
 
 #define IMPL_INTERN(name, value_type)                                         \
@@ -55,8 +59,12 @@
     free(chunk);                                                              \
   }                                                                           \
                                                                               \
-  void name##_init(name *intern, name##HashSetHashFn hash,                    \
+  void name##_init(name *intern, bool threadsafe, name##HashSetHashFn hash,   \
                    name##HashSetCompareFn compare) {                          \
+    intern->threadsafe = threadsafe;                                          \
+    if (intern->threadsafe) {                                                 \
+      rwlock_init(&intern->rw_lock);                                          \
+    }                                                                         \
     intern->chunk = intern->last =                                            \
         name##Chunk_create(DEFAULT_MAX_VALUES_PER_CHUNK);                     \
     intern->tail = intern->chunk->block;                                      \
@@ -71,12 +79,20 @@
                                                                               \
   const value_type *name##_intern(name *intern, const value_type *value,      \
                                   uint32_t value_size) {                      \
+    if (intern->threadsafe) {                                                 \
+      rwlock_lock_for_read(&intern->rw_lock);                                 \
+    }                                                                         \
     value_type *value_lookup =                                                \
         name##HashSet_find(&intern->hash_set, value, value_size, NULL);       \
+    if (intern->threadsafe) {                                                 \
+      rwlock_unlock_for_read(&intern->rw_lock);                               \
+    }                                                                         \
     if (NULL != value_lookup) {                                               \
       return value_lookup;                                                    \
     }                                                                         \
-                                                                              \
+    if (intern->threadsafe) {                                                 \
+      rwlock_lock_for_write(&intern->rw_lock);                                \
+    }                                                                         \
     if (intern->tail + value_size >= intern->end) {                           \
       intern->last->next = name##Chunk_create(                                \
           MAX_VALUE(DEFAULT_MAX_VALUES_PER_CHUNK * sizeof(value_type),        \
@@ -89,6 +105,9 @@
     memmove(intern->tail, value, value_size);                                 \
     intern->tail += value_size;                                               \
     name##HashSet_insert(&intern->hash_set, to_return, value_size);           \
+    if (intern->threadsafe) {                                                 \
+      rwlock_unlock_for_write(&intern->rw_lock);                              \
+    }                                                                         \
     return to_return;                                                         \
   }
 

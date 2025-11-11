@@ -51,7 +51,8 @@ int32_t compare_strings(const char *ptr1, uint32_t size1, const char *ptr2,
 class StringInternTest : public Test {
  protected:
   StringInternTest() {
-    StringIntern_init(&intern, hash_string, compare_strings);
+    StringIntern_init(&intern, /*threadsafe=*/false, hash_string,
+                      compare_strings);
   }
   ~StringInternTest() { StringIntern_finalize(&intern); }
   StringIntern intern;
@@ -65,7 +66,7 @@ TEST_F(StringInternTest, Intern) {
   // Insert
   const char *str = StringIntern_intern(&intern, "cat", sizeof("cat"));
 
-  // Verify it returns save string
+  // Verify it returns same string
   ASSERT_THAT(str, NotNull());
   ASSERT_EQ(str, StringIntern_intern(&intern, str, sizeof("cat")));
 }
@@ -77,7 +78,7 @@ TEST_F(StringInternTest, InternN) {
   const char *the = StringIntern_intern(&intern, "the", sizeof("the"));
   const char *hat = StringIntern_intern(&intern, "hat", sizeof("hat"));
 
-  // Verify it returns save string
+  // Verify it returns same string
   ASSERT_THAT(cat, NotNull());
   ASSERT_THAT(in, NotNull());
   ASSERT_THAT(the, NotNull());

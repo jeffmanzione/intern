@@ -4,6 +4,11 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//intern:__pkg__"])
 
 cc_library(
+    name = "platform",
+    hdrs = ["platform.h"],
+)
+
+cc_library(
     name = "intern_helpers",
     srcs = ["intern_helpers.c"],
     hdrs = ["intern_helpers.h"],
@@ -34,4 +39,11 @@ cc_test(
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],
+)
+
+cc_library(
+    name = "rwlock",
+    srcs = ["rwlock.c"],
+    hdrs = ["rwlock.h"],
+    deps = [":platform"],
 )
