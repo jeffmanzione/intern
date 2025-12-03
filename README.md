@@ -106,7 +106,7 @@ Intern Pools use:
 1. Include the project in your MODULE.bazel file.
    
    ```
-   bazel_dep(name = "intern", version = "0.0.1")
+   bazel_dep(name = "jeffmanzione_intern", version = "0.0.1")
    ```
 2. Add the dependency to your cc_library:
 
@@ -117,7 +117,7 @@ Intern Pools use:
       srcs = [...],
       deps = [
         ...
-        "@intern//intern",
+        "@jeffmanzione_intern//intern",
       ],
    )
    ```

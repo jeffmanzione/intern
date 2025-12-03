@@ -1,7 +1,7 @@
 """MODULE.bazel"""
 
 module(
-    name = "intern",
+    name = "jeffmanzione_intern",
     version = "1.0.1",
     compatibility_level = 1,
 )
