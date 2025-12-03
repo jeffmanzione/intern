@@ -45,5 +45,9 @@ cc_library(
     name = "rwlock",
     srcs = ["rwlock.c"],
     hdrs = ["rwlock.h"],
+    linkopts = select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default": ["-lpthread"],
+    }),
     deps = [":platform"],
 )

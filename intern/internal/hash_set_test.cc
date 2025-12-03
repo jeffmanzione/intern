@@ -29,7 +29,7 @@ int32_t compare_int32s(const int32_t num1, uint32_t size1, const int32_t num2,
 uint32_t hash_string(const char *ptr, uint32_t size) {
   unsigned char *s = (unsigned char *)ptr;
   uint32_t hval = FNV_1A_32_OFFSET;
-  for (int i = 0; i < size; ++i) {
+  for (uint32_t i = 0; i < size; ++i) {
     hval *= FNV_32_PRIME;
     hval ^= (uint32_t)*s++;
   }

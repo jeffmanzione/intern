@@ -1,6 +1,4 @@
-extern "C" {
 #include "intern/intern.h"
-}
 
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
@@ -9,8 +7,6 @@ extern "C" {
 namespace {
 
 using namespace testing;
-
-DEFINE_INTERN_POOL(Int32InternPool, int32_t);
 
 DEFINE_INTERN_POOL(StringInternPool, char);
 IMPL_INTERN_POOL(StringInternPool, char);

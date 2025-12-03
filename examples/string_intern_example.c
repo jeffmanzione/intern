@@ -3,8 +3,6 @@
 
 #include "intern/intern.h"
 
-#define MAX_VALUE(a, b) ((a) > (b)) ? (a) : (b)
-
 // Define an intern pool for strings (char arrays)
 DEFINE_INTERN_POOL(StringInternPool, char)
 IMPL_INTERN_POOL(StringInternPool, char)

@@ -8,8 +8,8 @@
 #define DEFAULT_TABLE_SIZE 31
 
 // Find the table position of a hash value.
-#define LOOKUP_HASH_POSITION(hval, num_probes, table_sz) \
-  (((hval) + ((num_probes) * (num_probes))) % (table_sz))
+#define LOOKUP_HASH_POSITION(hval, num_probes, table_size) \
+  (((hval) + ((num_probes) * (num_probes))) % (table_size))
 
 // Calculates a new reasonable size of the hash table given a current size.
 #define CALCULATE_NEW_TABLE_SIZE(current_size) (((current_size)*2) + 1)
@@ -18,6 +18,22 @@
 // before it efficieny starts to diminish and the table should be
 // resized/rehashed.
 #define CALCULATE_RESIZE_THRESHOLD(table_size) ((int)((table_size) / 2.f))
+
+// Value for num_probes on a hash table entry when it has been tombstoned, i.e.,
+// previously contained a value that was subsquently removed.
+#define TOMBSTONE -1
+
+// True if entry is a tombstone, i.e., previously contained a value that was
+// subsequently removed, false otherwise.
+#define IS_TOMBSTONE(entry) ((entry)->num_probes == -1)
+
+// True if entry currently has no value and did not previously, false
+// otherwise.
+#define IS_EMPTY(entry) ((entry)->num_probes == 0)
+
+// The max number of probes search for a value in the hash table before there is
+// a clear performance bottleneck w.r.t. the size of the hash table.
+#define MAX_PROBES_THRESHOLD(table_size) ((int)((table_size) / 2))
 
 // Expands to the header definitions for a hash set with the given name and
 // value type.
@@ -90,6 +106,7 @@
 //   Cat CatHashSet_find(CatHashSet*, const Cat, uint32_t value_size) { ... }
 //   uint32_t CatHashSet_size(CatHashSet*) { ... }
 #define IMPL_HASH_SET(name, value_type)                                        \
+                                                                               \
   struct name##Entry_ {                                                        \
     value_type value;                                                          \
     uint32_t value_size;                                                       \
@@ -97,53 +114,22 @@
     int32_t num_probes;                                                        \
     name##Entry *prev, *next;                                                  \
   };                                                                           \
-  void name##_resize_table(name *set);                                         \
                                                                                \
-  name *name##_create(uint32_t start_size, name##HashFn hash,                  \
-                      name##CompareFn compare) {                               \
-    name *hash_set = (name *)calloc(sizeof(name), 1);                          \
-    name##_init(hash_set, start_size, hash, compare);                          \
-    return hash_set;                                                           \
-  }                                                                            \
-                                                                               \
-  void name##_init(name *hash_set, uint32_t start_size, name##HashFn hash,     \
-                   name##CompareFn compare) {                                  \
-    hash_set->hash = hash;                                                     \
-    hash_set->compare = compare;                                               \
-    hash_set->table_size = start_size;                                         \
-    hash_set->resize_threshold = CALCULATE_RESIZE_THRESHOLD(start_size);       \
-    hash_set->table = NULL;                                                    \
-    hash_set->first = NULL;                                                    \
-    hash_set->last = NULL;                                                     \
-    hash_set->num_entries = 0;                                                 \
-  }                                                                            \
-                                                                               \
-  void name##_finalize(name *hash_set) {                                       \
-    if (NULL == hash_set->table) {                                             \
-      return;                                                                  \
-    }                                                                          \
-    free(hash_set->table);                                                     \
-  }                                                                            \
-                                                                               \
-  void name##_delete(name *hash_set) {                                         \
-    name##_finalize(hash_set);                                                 \
-    free(hash_set);                                                            \
-  }                                                                            \
-                                                                               \
-  bool name##_insert_helper(                                                   \
+  static bool name##_attempt_insert_internal(                                  \
       name *hash_set, value_type value, uint32_t value_size, uint32_t hval,    \
-      name##Entry *table, uint32_t table_sz, name##Entry **first,              \
-      name##Entry **last, bool *too_many_inserts) {                            \
+      name##Entry *table, uint32_t table_size, name##Entry **first,            \
+      name##Entry **last, bool *probe_limit_exceeded) {                        \
     int num_probes = 0;                                                        \
-    int num_previously_used = 0;                                               \
+    int num_tombstones_encountered = 0;                                        \
     name##Entry *first_empty = NULL;                                           \
     int num_probes_at_first_empty = -1;                                        \
     while (true) {                                                             \
-      int table_index = LOOKUP_HASH_POSITION(hval, num_probes, table_sz);      \
+      const int hash_position =                                                \
+          LOOKUP_HASH_POSITION(hval, num_probes, table_size);                  \
       num_probes++;                                                            \
-      name##Entry *entry = table + table_index;                                \
+      name##Entry *entry = table + hash_position;                              \
       /* Position is vacant. */                                                \
-      if (0 == entry->num_probes) {                                            \
+      if (entry->num_probes == 0) {                                            \
         /* Use the previously empty slot if we don't find our element. */      \
         if (first_empty != NULL) {                                             \
           entry = first_empty;                                                 \
@@ -156,26 +142,26 @@
         entry->num_probes = num_probes;                                        \
         entry->prev = *last;                                                   \
         entry->next = NULL;                                                    \
-        if (NULL != *last) {                                                   \
+        if (*last != NULL) {                                                   \
           entry->prev->next = entry;                                           \
         }                                                                      \
         *last = entry;                                                         \
-        if (NULL == *first) {                                                  \
+        if (*first == NULL) {                                                  \
           *first = entry;                                                      \
         }                                                                      \
         return true;                                                           \
       }                                                                        \
       /* Spot is vacant but previously used, mark it so we can use it later.   \
        */                                                                      \
-      if (-1 == entry->num_probes) {                                           \
-        num_previously_used++;                                                 \
+      if (IS_TOMBSTONE(entry)) {                                               \
+        num_tombstones_encountered++;                                          \
         /* Returns early if there is a severe performance bottleneck so the    \
          * table can be rehashed. */                                           \
-        if (num_previously_used > (int)(table_sz / 2)) {                       \
-          *too_many_inserts = true;                                            \
+        if (num_tombstones_encountered > MAX_PROBES_THRESHOLD(table_size)) {   \
+          *probe_limit_exceeded = true;                                        \
           return false;                                                        \
         }                                                                      \
-        if (NULL == first_empty) {                                             \
+        if (first_empty == NULL) {                                             \
           first_empty = entry;                                                 \
           num_probes_at_first_empty = num_probes;                              \
         }                                                                      \
@@ -184,8 +170,8 @@
       /* Pair is already present in the table, so the mission is accomplished. \
        */                                                                      \
       if (hval == entry->hash_value) {                                         \
-        if (0 == hash_set->compare(value, value_size, entry->value,            \
-                                   entry->value_size)) {                       \
+        if (hash_set->compare(value, value_size, entry->value,                 \
+                              entry->value_size) == 0) {                       \
           entry->value = (value_type)value;                                    \
           return false;                                                        \
         }                                                                      \
@@ -209,31 +195,90 @@
     }                                                                          \
   }                                                                            \
                                                                                \
+  static void name##_resize_table(name *hash_set) {                            \
+    const uint32_t new_table_size =                                            \
+        CALCULATE_NEW_TABLE_SIZE(hash_set->table_size);                        \
+    name##Entry *new_table =                                                   \
+        (name##Entry *)calloc(sizeof(name##Entry), new_table_size);            \
+    name##Entry *new_first = NULL;                                             \
+    name##Entry *new_last = NULL;                                              \
+                                                                               \
+    for (name##Entry *entry = hash_set->first; entry != NULL;                  \
+         entry = entry->next) {                                                \
+      bool probe_limit_exceeded = false;                                       \
+      name##_attempt_insert_internal(hash_set, entry->value,                   \
+                                     entry->value_size, entry->hash_value,     \
+                                     new_table, new_table_size, &new_first,    \
+                                     &new_last, &probe_limit_exceeded);        \
+      if (probe_limit_exceeded) {                                              \
+        /* Should never happen */                                              \
+      }                                                                        \
+    }                                                                          \
+                                                                               \
+    free(hash_set->table);                                                     \
+    hash_set->table = new_table;                                               \
+    hash_set->table_size = new_table_size;                                     \
+    hash_set->first = new_first;                                               \
+    hash_set->last = new_last;                                                 \
+    hash_set->resize_threshold = CALCULATE_RESIZE_THRESHOLD(new_table_size);   \
+  }                                                                            \
+                                                                               \
+  name *name##_create(uint32_t start_size, name##HashFn hash,                  \
+                      name##CompareFn compare) {                               \
+    name *hash_set = (name *)calloc(sizeof(name), 1);                          \
+    name##_init(hash_set, start_size, hash, compare);                          \
+    return hash_set;                                                           \
+  }                                                                            \
+                                                                               \
+  void name##_init(name *hash_set, uint32_t start_size, name##HashFn hash,     \
+                   name##CompareFn compare) {                                  \
+    hash_set->hash = hash;                                                     \
+    hash_set->compare = compare;                                               \
+    hash_set->table_size = start_size;                                         \
+    hash_set->resize_threshold = CALCULATE_RESIZE_THRESHOLD(start_size);       \
+    hash_set->table = NULL;                                                    \
+    hash_set->first = NULL;                                                    \
+    hash_set->last = NULL;                                                     \
+    hash_set->num_entries = 0;                                                 \
+  }                                                                            \
+                                                                               \
+  void name##_finalize(name *hash_set) {                                       \
+    if (hash_set->table == NULL) {                                             \
+      return;                                                                  \
+    }                                                                          \
+    free(hash_set->table);                                                     \
+  }                                                                            \
+                                                                               \
+  void name##_delete(name *hash_set) {                                         \
+    name##_finalize(hash_set);                                                 \
+    free(hash_set);                                                            \
+  }                                                                            \
+                                                                               \
   bool name##_insert(name *hash_set, const value_type value,                   \
                      uint32_t value_size) {                                    \
-    if (NULL == hash_set->table) {                                             \
+    if (hash_set->table == NULL) {                                             \
       hash_set->table =                                                        \
           (name##Entry *)calloc(sizeof(name##Entry), hash_set->table_size);    \
     } else if (hash_set->num_entries > hash_set->resize_threshold) {           \
       name##_resize_table(hash_set);                                           \
     }                                                                          \
-    bool too_many_inserts = false;                                             \
-    bool was_inserted = name##_insert_helper(                                  \
+    bool probe_limit_exceeded = false;                                         \
+    bool was_inserted = name##_attempt_insert_internal(                        \
         hash_set, (value_type)value, value_size,                               \
         hash_set->hash(value, value_size), hash_set->table,                    \
         hash_set->table_size, &hash_set->first, &hash_set->last,               \
-        &too_many_inserts);                                                    \
+        &probe_limit_exceeded);                                                \
     /* Maps may have a lot of removed spots. If this causes a performance      \
      * slowdown, then it is better to rehash the map. */                       \
-    if (too_many_inserts) {                                                    \
+    if (probe_limit_exceeded) {                                                \
       name##_resize_table(hash_set);                                           \
-      too_many_inserts = false;                                                \
-      was_inserted = name##_insert_helper(                                     \
+      probe_limit_exceeded = false;                                            \
+      was_inserted = name##_attempt_insert_internal(                           \
           hash_set, (value_type)value, value_size,                             \
           hash_set->hash(value, value_size), hash_set->table,                  \
           hash_set->table_size, &hash_set->first, &hash_set->last,             \
-          &too_many_inserts);                                                  \
-      if (too_many_inserts) {                                                  \
+          &probe_limit_exceeded);                                              \
+      if (probe_limit_exceeded) {                                              \
         /* This should never happen. */                                        \
       }                                                                        \
     }                                                                          \
@@ -243,26 +288,24 @@
     return was_inserted;                                                       \
   }                                                                            \
                                                                                \
-  name##Entry *name##_lookup_entry(                                            \
+  static name##Entry *name##_find_entry(                                       \
       const name *hash_set, const value_type value, uint32_t value_size,       \
-      name##Entry *table, uint32_t table_sz) {                                 \
-    uint32_t hval = hash_set->hash(value, value_size);                         \
+      name##Entry *table, uint32_t table_size) {                               \
+    const uint32_t hval = hash_set->hash(value, value_size);                   \
     int num_probes = 0;                                                        \
     while (true) {                                                             \
-      int table_index = LOOKUP_HASH_POSITION(hval, num_probes, table_sz);      \
+      int table_index = LOOKUP_HASH_POSITION(hval, num_probes, table_size);    \
       ++num_probes;                                                            \
       name##Entry *entry = table + table_index;                                \
-      if (0 == entry->num_probes) {                                            \
-        /* Found empty. */                                                     \
+      if (IS_EMPTY(entry)) {                                                   \
         return NULL;                                                           \
       }                                                                        \
-      if (-1 == entry->num_probes) {                                           \
-        /* Found previously used. */                                           \
+      if (IS_TOMBSTONE(entry)) {                                               \
         continue;                                                              \
       }                                                                        \
       if (hval == entry->hash_value) {                                         \
-        if (0 == hash_set->compare(value, value_size, entry->value,            \
-                                   entry->value_size)) {                       \
+        if (hash_set->compare(value, value_size, entry->value,                 \
+                              entry->value_size) == 0) {                       \
           return entry;                                                        \
         }                                                                      \
       }                                                                        \
@@ -271,12 +314,12 @@
                                                                                \
   bool name##_remove(name *hash_set, const value_type value,                   \
                      uint32_t value_size) {                                    \
-    if (NULL == hash_set->table) {                                             \
+    if (hash_set->table == NULL) {                                             \
       return false;                                                            \
     }                                                                          \
-    name##Entry *entry = name##_lookup_entry(                                  \
+    name##Entry *entry = name##_find_entry(                                    \
         hash_set, value, value_size, hash_set->table, hash_set->table_size);   \
-    if (NULL == entry) {                                                       \
+    if (entry == NULL) {                                                       \
       return false;                                                            \
     }                                                                          \
     if (hash_set->last == entry) {                                             \
@@ -289,62 +332,36 @@
     } else {                                                                   \
       entry->prev->next = entry->next;                                         \
     }                                                                          \
-    entry->num_probes = -1;                                                    \
+    entry->num_probes = TOMBSTONE;                                             \
     hash_set->num_entries--;                                                   \
     return true;                                                               \
   }                                                                            \
                                                                                \
   bool name##_contains(const name *hash_set, const value_type value,           \
                        uint32_t value_size) {                                  \
-    if (NULL == hash_set->table) {                                             \
+    if (hash_set->table == NULL) {                                             \
       return false;                                                            \
     }                                                                          \
-    name##Entry *entry = name##_lookup_entry(                                  \
+    name##Entry *entry = name##_find_entry(                                    \
         hash_set, value, value_size, hash_set->table, hash_set->table_size);   \
-    if (NULL == entry) {                                                       \
+    if (entry == NULL) {                                                       \
       return false;                                                            \
     }                                                                          \
     return true;                                                               \
   }                                                                            \
   value_type name##_find(const name *hash_set, const value_type value,         \
                          uint32_t value_size, value_type default_value) {      \
-    if (NULL == hash_set->table) {                                             \
+    if (hash_set->table == NULL) {                                             \
       return default_value;                                                    \
     }                                                                          \
-    name##Entry *entry = name##_lookup_entry(                                  \
+    name##Entry *entry = name##_find_entry(                                    \
         hash_set, value, value_size, hash_set->table, hash_set->table_size);   \
-    if (NULL == entry) {                                                       \
+    if (entry == NULL) {                                                       \
       return default_value;                                                    \
     }                                                                          \
     return entry->value;                                                       \
   }                                                                            \
                                                                                \
-  uint32_t name##_size(const name *hash_set) { return hash_set->num_entries; } \
-                                                                               \
-  void name##_resize_table(name *hash_set) {                                   \
-    uint32_t new_table_size = CALCULATE_NEW_TABLE_SIZE(hash_set->table_size);  \
-    name##Entry *new_table =                                                   \
-        (name##Entry *)calloc(sizeof(name##Entry), new_table_size);            \
-    name##Entry *new_first = NULL;                                             \
-    name##Entry *new_last = NULL;                                              \
-                                                                               \
-    for (name##Entry *entry = hash_set->first; entry != NULL;                  \
-         entry = entry->next) {                                                \
-      bool too_many_inserts = false;                                           \
-      name##_insert_helper(hash_set, entry->value, entry->value_size,          \
-                           entry->hash_value, new_table, new_table_size,       \
-                           &new_first, &new_last, &too_many_inserts);          \
-      if (too_many_inserts) {                                                  \
-        /* Should never happen */                                              \
-      }                                                                        \
-    }                                                                          \
-                                                                               \
-    free(hash_set->table);                                                     \
-    hash_set->table = new_table;                                               \
-    hash_set->table_size = new_table_size;                                     \
-    hash_set->first = new_first;                                               \
-    hash_set->last = new_last;                                                 \
-    hash_set->resize_threshold = CALCULATE_RESIZE_THRESHOLD(new_table_size);   \
-  }
+  uint32_t name##_size(const name *hash_set) { return hash_set->num_entries; }
 
 #endif /* COM_GITHUB_JEFFMANZIONE_INTERN_INTERNAL_HASH_SET_H_ */

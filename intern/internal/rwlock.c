@@ -3,66 +3,74 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(PLATFORM_WINDOWS)
+#if defined(SYSTEM_WINDOWS)
 #include <windows.h>
 #endif
 
-void rwlock_init(RWLock *rw_lock) {
-#ifdef PLATFORM_WINDOWS
-  InitializeSRWLock(rw_lock);
-#elif defined(PLATFORM_POSIX)
-  pthread_rwlock_init(rw_lock, NULL);
+/* Consistent error handler for unsupported platforms */
+#if !defined(SYSTEM_WINDOWS) && !defined(SYSTEM_POSIX)
+#define RWLOCK_UNIMPLEMENTED() perror("RWLock unimplemented")
+#endif
+
+void rwlock_init(RWLock *rwlock) {
+#if defined(SYSTEM_WINDOWS)
+  /* SRW locks require no allocation or configuration */
+  InitializeSRWLock(rwlock);
+#elif defined(SYSTEM_POSIX)
+  pthread_rwlock_init(rwlock, NULL);
 #else
-  perror("RWLock unimplemented");
+  RWLOCK_UNIMPLEMENTED();
 #endif
 }
 
-void rwlock_destroy(RWLock *rw_lock) {
-#ifdef PLATFORM_WINDOWS
-  CloseHandle(rw_lock);
-#elif defined(PLATFORM_POSIX)
-  pthread_rwlock_destroy(&rw_lock);
+void rwlock_destroy(RWLock *rwlock) {
+#if defined(SYSTEM_POSIX)
+  /* POSIX locks must be explicitly destroyed */
+  pthread_rwlock_destroy(rwlock);
 #else
-  perror("RWLock unimplemented");
+  /* Windows SRW locks need no destruction */
+#if !defined(SYSTEM_WINDOWS)
+  RWLOCK_UNIMPLEMENTED();
+#endif
 #endif
 }
 
-void rwlock_lock_for_read(RWLock *rw_clok) {
-#ifdef PLATFORM_WINDOWS
-  AcquireSRWLockShared(rw_lock);
-#elif defined(PLATFORM_POSIX)
-  pthread_rwlock_rdlock(rw_lock);
+void rwlock_read_lock(RWLock *rwlock) {
+#if defined(SYSTEM_WINDOWS)
+  AcquireSRWLockShared(rwlock);
+#elif defined(SYSTEM_POSIX)
+  pthread_rwlock_rdlock(rwlock);
 #else
-  perror("RWLock unimplemented");
+  RWLOCK_UNIMPLEMENTED();
 #endif
 }
 
-void rwlock_unlock_for_read(RWLock *rw_clok) {
-#ifdef PLATFORM_WINDOWS
-  ReleaseSRWLockShared(rw_lock);
-#elif defined(PLATFORM_POSIX)
-  pthread_rwlock_unlock(rw_lock);
+void rwlock_read_unlock(RWLock *rwlock) {
+#if defined(SYSTEM_WINDOWS)
+  ReleaseSRWLockShared(rwlock);
+#elif defined(SYSTEM_POSIX)
+  pthread_rwlock_unlock(rwlock);
 #else
-  perror("RWLock unimplemented");
+  RWLOCK_UNIMPLEMENTED();
 #endif
 }
 
-void rwlock_lock_for_write(RWLock *rw_lock) {
-#ifdef PLATFORM_WINDOWS
-  AcquireSRWLockExclusive(rw_lock);
-#elif defined(PLATFORM_POSIX)
-  pthread_rwlock_wrlock(rw_lock);
+void rwlock_write_lock(RWLock *rwlock) {
+#if defined(SYSTEM_WINDOWS)
+  AcquireSRWLockExclusive(rwlock);
+#elif defined(SYSTEM_POSIX)
+  pthread_rwlock_wrlock(rwlock);
 #else
-  perror("RWLock unimplemented");
+  RWLOCK_UNIMPLEMENTED();
 #endif
 }
 
-void rwlock_unlock_for_write(RWLock *rw_lock) {
-#ifdef PLATFORM_WINDOWS
-  ReleaseSRWLockExclusive(rw_lock);
-#elif defined(PLATFORM_POSIX)
-  pthread_rwlock_unlock(rw_lock);
+void rwlock_write_unlock(RWLock *rwlock) {
+#if defined(SYSTEM_WINDOWS)
+  ReleaseSRWLockExclusive(rwlock);
+#elif defined(SYSTEM_POSIX)
+  pthread_rwlock_unlock(rwlock);
 #else
-  perror("RWLock unimplemented");
+  RWLOCK_UNIMPLEMENTED();
 #endif
 }
