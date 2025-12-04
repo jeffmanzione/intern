@@ -25,6 +25,7 @@ typedef pthread_rwlock_t RWLock;
 #define RWLOCK_INIT PTHREAD_RWLOCK_INITIALIZER
 
 #elif defined(SYSTEM_WINDOWS)
+#include <windows.h>
 typedef SRWLOCK RWLock;
 #define RWLOCK_INIT SRWLOCK_INIT
 
